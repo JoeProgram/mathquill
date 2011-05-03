@@ -22,39 +22,39 @@ cat:
 	cat ${FILES} > "${BUILD_FILE}"
 
 minify: cat
-	which uglifyjs >/dev/null && \
-    uglifyjs "${BUILD_FILE}" > "${MINIFIED_BUILD_FILE}"
+#	which uglifyjs >/dev/null && \
+#    uglifyjs "${BUILD_FILE}" > "${MINIFIED_BUILD_FILE}"
 
 publish:
 	[ "`git symbolic-ref -q HEAD`" = "refs/heads/master" ] || ( \
 	  echo "err: Please check out master first." >&2; exit 1 \
 	)
-	make minify
+#	make minify
 	cp mathquill.css build/mathquill.css
-	git stash
-	git checkout gh-pages
-	git pull origin gh-pages
+#	git stash
+#	git checkout gh-pages
+#	git pull origin gh-pages
 	cp build/* .
 	cp build/*.js dev
 	sed 's:url(:url(../:g' build/mathquill.css > dev/mathquill.css
 	rm build/mathquill.css
-	git commit -a -m "publish new mathquill.{js, css}"
-	git push origin gh-pages
-	git checkout -
-	git stash pop
+#	git commit -a -m "publish new mathquill.{js, css}"
+#	git push origin gh-pages
+#	git checkout -
+#	git stash pop
 
 publish-dev: cat minify
 	cp mathquill.css build/mathquill.css
-	git stash
-	git checkout gh-pages
-	git pull origin gh-pages
+#	git stash
+#	git checkout gh-pages
+#	git pull origin gh-pages
 	cp build/*.js dev
 	sed 's:url(:url(../:g' build/mathquill.css > dev/mathquill.css
 	rm build/mathquill.css
-	git commit -a -m "publish new dev/mathquill.{js, css}"
-	git push origin gh-pages
-	git checkout -
-	git stash pop
+#	git commit -a -m "publish new dev/mathquill.{js, css}"
+#	git push origin gh-pages
+#	git checkout -
+#	git stash pop
 
 lol:
 	@@echo "LOL!"

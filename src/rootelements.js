@@ -99,7 +99,7 @@ function createRoot(jQ, root, textbox, editable) {
     $(document).mousemove(docmousemove).mouseup(mouseup);
 
     setTimeout(function(){textarea.focus();});
-  }).bind('selectstart.mathquill', false).blur();
+  }).bind('selectstart.mathquill', {}, $.noop ).blur();
 
   function mousemove(e) {
     cursor.seek($(e.target), e.pageX, e.pageY);
@@ -139,6 +139,7 @@ _.text = function() {
 _.renderLatex = function(latex) {
   this.jQ.children().slice(1).remove();
   this.firstChild = this.lastChild = 0;
+
   this.cursor.appendTo(this).writeLatex(latex);
   this.blur();
 };
@@ -377,19 +378,28 @@ _.renderLatex = function(latex) {
   cursor.show().appendTo(self);
 
   latex = latex.match(/(?:\\\$|[^$])+|\$(?:\\\$|[^$])*\$|\$(?:\\\$|[^$])*$/g) || '';
+
+  // we'll split each of the latex expressions into its own chunk
   for (var i = 0; i < latex.length; i += 1) {
     var chunk = latex[i];
+
+    // we look for the dollar signs that indicate the start of latex
+    // we remove them, as we've already decided that this is latex    
     if (chunk[0] === '$') {
       if (chunk[-1+chunk.length] === '$' && chunk[-2+chunk.length] !== '\\')
         chunk = chunk.slice(1, -1);
       else
         chunk = chunk.slice(1);
 
+      //create a new command, and then parse the expression recursivley
       var root = new RootMathCommand(cursor);
       cursor.insertNew(root);
       root.firstChild.renderLatex(chunk);
       cursor.show().insertAfter(root);
     }
+
+    // if we can't find the dollar signs, we assume that this 
+    // chunk is meant to be read all together as a single symbol
     else {
       for (var j = 0; j < chunk.length; j += 1)
         this.cursor.insertNew(new VanillaSymbol(chunk[j]));

@@ -188,20 +188,29 @@ _.seek = function(target, pageX, pageY) {
 
   return cursor;
 };
+
+/*
+  Converts a LaTeX string into its MathQuill representation
+*/
 _.writeLatex = function(latex) {
   this.deleteSelection();
-  latex = ( latex && latex.match(/\\text\{([^{]|\\\{)*\}|\\[a-z]*|[^\s]/ig) ) || 0;
+  latex = ( latex && latex.match(/\\text\{([^{]|\\\{)*\}|\\begin{([a-z]*)}.+?\\end{\2}|\\[a-z]*|[^\s]/ig) ) || 0;
   (function writeLatexBlock(cursor) {
+
     while (latex.length) {
       var token = latex.shift(); //pop first item
+
       if (!token || token === '}') return;
 
+      // parse text boxes
       var cmd;
       if (token.slice(0, 6) === '\\text{') {
         cmd = new TextBlock(token.slice(6, -1));
         cursor.insertNew(cmd).insertAfter(cmd);
         continue; //skip recursing through children
       }
+
+      // parse brackets
       else if (token === '\\left' || token === '\\right') { //REMOVEME HACK for parens
         token = latex.shift();
         if (token === '\\')
@@ -215,6 +224,26 @@ _.writeLatex = function(latex) {
         else //was an open-paren, hack to put the following latex
           latex.unshift('{'); //in the ParenBlock in the math DOM
       }
+
+      //parse environments
+      // environments substantially change the way tokens are processed,
+      // and its up the environment to break apart the tokens successfully
+      else if(/^\\begin{([a-z]+)}/.test(token)){
+        token = /^\\begin{([a-z]+)}/.exec(token);
+        token = token.slice(1);
+
+        environ = LatexEnvirons[token];
+        if (cmd){
+          cursor.inertNew( cmd = new cmd(undefined, token));
+        }else{
+          cmd = new TextBlock(token);
+          cursor.insertNew(cmd).insertAfter(cmd);
+          continue;
+        }
+
+      }
+
+      // parse commands
       else if (/^\\[a-z]+$/i.test(token)) {
         token = token.slice(1);
         var cmd = LatexCmds[token];

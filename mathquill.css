@@ -33,9 +33,6 @@
 .mathquill-editable.empty, .mathquill-editable * {
   cursor: text;
 }
-*:first-child+html .mathquill-editable.empty { /* IE7 only */
-  width: 0.5em; /* Sets a min-width for IE7 when empty */
-}
 
 .mathquill-editable .textarea {
   position: relative;
@@ -49,9 +46,6 @@
   opacity: 0;
   border: none;
   outline: none;
-}
-*:first-child+html .mathquill-editable .textarea textarea { /* IE7 only */
-  display: none; /* Prevents text cursor from showing in mathquill box in IE7 */ 
 }
 
 .mathquill-editable .cursor {
@@ -139,6 +133,15 @@
   box-shadow: #68B4DF 0 0 3px 2px;
 }
 
+.mathquill-editable.hasCursor{
+  border: 1px solid #68B4DF;
+}
+
+.mathquill-editable .hasCursor {
+  border: 1px solid #68B4DF;
+  margin: -1px;
+}
+
 .mathquill-rendered-math .empty {
   background: #ccc;
 }
@@ -169,9 +172,6 @@
 }
 .mathquill-rendered-math sup {
   vertical-align: .5em;
-}
-*:first-child+html .mathquill-rendered-math sup { /* IE7 only */
-  line-height: .8em; /* Fix exponent display in IE7 */
 }
 .mathquill-rendered-math sub {
   vertical-align: -.4em;
@@ -225,19 +225,13 @@
 .mathquill-rendered-math .numerator {
   border-bottom: 1px solid; /* black is too black, contrasts with antialised text */
   padding: 0 .1em;
+  margin-bottom: 0px; /* Our default margin on an active element is -1px, so we set it to 0px when using a border */
 }
 .mathquill-rendered-math .denominator {
   border-top: 1px solid;
+  margin-top: 0px; /* Our default margin on an active element is -1px, so we set it to 0px when using a border */
   float: right; /* take out of normal flow to manipulate baseline */
   width: 100%;
-}
-*:first-child+html .mathquill-rendered-math .numerator { /* IE7 only */
-  float: left;
-}
-*:first-child+html .mathquill-rendered-math .denominator { /* IE7 only */
-  clear: both;
-  width: auto;
-  float: left;
 }
 
 .mathquill-rendered-math sup .fraction, .mathquill-rendered-math sub .fraction {
@@ -292,6 +286,11 @@
 
 .mathquill-rendered-math .array > span {
   display: block;
+}
+
+.mathquill-rendered-math .matrix > span {
+  padding-right: .2em;
+  padding-left: .2em;
 }
 
 .mathquill-rendered-math .non-italicized-function {

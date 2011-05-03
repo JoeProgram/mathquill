@@ -1,8 +1,23 @@
 /***************************
- * Commands and Operators.
+ * Commands and Operators and Environments.
+ *
+ * A Command in LaTex is defined by \<command>{arg1}{arg2}...
+ *   a good example is fractions, where one-half is:
+ *
+ * \frac{1}{2}
+ *
+ * An environment works like tags in html, in that it opens and closes,
+ *   and uses the information between the start and the end.
+ *   A good example is the 3 by 3 identity matrix:
+ *
+ * \begin{array}{ccc}
+ *    1 & 0 & 0 \\
+ *    0 & 1 & 0 \\
+ *     0 & 0 & 1
+ * \end{array}
  **************************/
 
-var CharCmds = {}, LatexCmds = {}; //single character commands, LaTeX commands
+var CharCmds = {}, LatexCmds = {}, LatexEnvirons = {}; //single character commands, LaTeX commands, LaTeX environments
 
 function proto(parent, child) { //shorthand for prototyping
   child.prototype = parent.prototype;
@@ -496,6 +511,10 @@ _.placeCursor = LiveFraction.prototype.placeCursor;
 
 LatexCmds.choose = Choose;
 
+/*********************
+A Vector is a 1-Dimensional Vertical Array
+**********************/
+
 function Vector(replacedFragment) {
   MathCommand.call(this, '\\vector', undefined, undefined, replacedFragment);
 }
@@ -538,6 +557,7 @@ _.keydown = function(e) {
       return false;
     }
     else if (e.which === 9 && !e.shiftKey && !currentBlock.next) { //tab
+
       if (currentBlock.isEmpty()) {
         if (currentBlock.prev) {
           this.cursor.insertAfter(this);
@@ -592,6 +612,387 @@ _.keydown = function(e) {
 };
 
 LatexCmds.vector = Vector;
+
+/****************************
+ Array support for MathQuill
+
+ We use ArrayCmd rather than Array,
+ as Array is a data type in javascript
+*****************************/
+function ArrayCmd(replacedFragment) {
+
+  MathCommand.call(this, '\\array', undefined, undefined, replacedFragment);
+
+  // whenever we create a new column, automatically fill it with an Array Column
+  this.firstColumn = new ArrayColumn();
+  this.hasCalledPlaceCursor = false;
+
+}
+_ = ArrayCmd.prototype = new MathCommand;
+_.html_template = ['<span class="matrix"><span></span></span>', '<span></span>'];
+_.latex = function() {
+
+  var result = [];
+  var columns = ""
+
+  // count the number of columns and store it
+  this.eachChild( function( columnBlock){
+    columns += "c"
+  });
+  columns = "{" + columns + "}"
+
+  for( var i = 0; i < this.getHeight(); i++){
+    var data = [];
+    this.eachChild( function( columnBlock ){
+      data.push( this.getCellByPosition(i, columnBlock ).latex() );
+    });
+    result.push( data.join(' & ') )
+  }
+
+  return '\\begin{matrix}' + columns + " " + result.join(' \\\\ ') + ' \\end{matrix}';
+};
+_.text = function() {
+  return '[' + this.foldChildren([], function(latex, child) {
+    text.push(child.text());
+    return text;
+  }).join() + ']';
+}
+_.placeCursor = function(cursor) {
+
+  this.cursor = cursor.appendTo(this.firstChild);
+
+  // If this is the very first time place cursor is called,
+  // call it on the child column too
+  if( ! this.hasCalledPlaceCursor ){
+    this.hasCalledPlaceCursor = true;
+    cursor.insertNew( this.firstColumn )
+  }
+};
+_.keydown = function(e) {
+
+  var currentBlock = this.cursor.parent;
+
+  // Sometimes we'll get the cell block,
+  // Sometimes we'll get the column block
+  // So we standardize to the column block
+  var columnBlock = currentBlock
+  while( columnBlock.parent != this ){
+    columnBlock = columnBlock.parent;
+  }
+
+  // Check to see if we should intercept the keypress
+  if (e.which === 13) { //enter
+    return this.enterDown( e, currentBlock, columnBlock );
+  }
+  if (e.which === 9 && !e.shiftKey) { //tab
+    return this.tabDown( e, currentBlock, columnBlock );
+  }
+  else if (e.which === 8) { //backspace
+    return this.backspaceDown( e, currentBlock, columnBlock );
+  }
+  else if (e.which == 37){ //left arrow key
+    return this.leftDown( e, currentBlock, columnBlock );
+  }
+  else if (e.which == 39){ //right arrow key
+    return this.rightDown( e, currentBlock, columnBlock );
+  }
+
+  return this.parent.keydown(e);
+};
+_.enterDown = function( e, currentBlock, columnBlock ){
+  
+  // check to make sure that we have a cell as our currentBlock,
+  // and not a column
+  if( currentBlock != columnBlock ){
+
+    if( this.isCellOnBottomRow( currentBlock ) ){
+
+      // if we're on the bottom row,
+      // we add a new row
+      // and then set the cursor to the first cell
+      this.eachChild( function(block){
+        block.firstChild.addCell();
+      });
+      this.cursor.appendTo(columnBlock.parent.firstChild.firstChild.lastChild).redraw();
+
+    }else{
+
+      // If we're not at the bottom of the matrix,
+      // we move the cursor down to the first cell of the next row
+      // like the way excel does it
+      var position = this.getCellPosition( currentBlock );
+      this.cursor.appendTo(this.getCellByPosition( position + 1, columnBlock.parent.firstChild)).redraw();
+    }
+  }
+
+}
+_.tabDown = function( e, currentBlock, columnBlock ){
+
+    // If we're on the end of the array
+    if (columnBlock.next == 0){
+
+      // If we press tab in the last column and its empty,
+      // delete it, and exit the matrix
+      if( columnBlock.firstChild.isEmpty() ){
+
+        if (columnBlock.prev) {
+          this.cursor.insertAfter(this);
+          delete columnBlock.prev.next;
+          this.lastChild = columnBlock.prev;
+          columnBlock.jQ.remove();
+          this.cursor.redraw();
+          return false;
+        }
+
+      // If the column has any text in it, we want to create a new column
+      }else{
+
+        var newBlock = new MathBlock;
+        newBlock.parent = this;
+        newBlock.jQ = $('<span></span>').data(jQueryDataKey, {block: newBlock}).appendTo(this.jQ);
+        this.lastChild = newBlock;
+        columnBlock.next = newBlock;
+        newBlock.prev = columnBlock;
+        this.cursor.appendTo(newBlock).redraw();
+
+        // whenever we create a new column, automatically fill it with an Array Column
+        var column = new ArrayColumn();
+        this.cursor.insertNew( column );
+
+        for( var i = 1; i < this.getHeight(); i++ ){
+          column.addCell();          
+        }
+  
+      }
+    
+    // if there is a column to the right of this one, give that one focus
+    }else{
+
+        // if the column is highlighted, we don't have a specific cell highlighted
+        // so we just move to the top cell of the next column
+        if( currentBlock == columnBlock ){
+          this.cursor.appendTo(currentBlock.next.firstChild.firstChild).redraw();        
+        }else{
+          var position = this.getCellPosition( currentBlock );
+          this.cursor.appendTo(this.getCellByPosition( position, columnBlock.next )).redraw();
+        }
+    }
+
+    return false;
+};
+_.leftDown = function( e, currentBlock, columnBlock ){
+  
+  // check to make sure we're in a cell and not a column
+  if( currentBlock != columnBlock ){
+    if( !this.cursor.prev ){
+      return this.moveLeft( currentBlock );
+    }
+  }
+
+  return this.parent.keydown(e);
+}
+_.moveLeft = function( cell ){
+
+  if( cell != this.lastChild  ){
+    this.cursor.insertBefore(this);
+  }
+
+  var position = this.getCellPosition( cell );
+  this.cursor.insertAfter(this.getCellByPosition( position, cell.parent.parent.prev ).lastChild).redraw();
+  return false;
+}
+_.rightDown = function( e, currentBlock, columnBlock ){
+  // check to make sure we're in a cell and not a column
+
+  if( currentBlock != columnBlock ){
+    if(!this.cursor.next ){
+      return this.moveRight( currentBlock );
+    }
+  }
+
+  return this.parent.keydown(e);
+}
+_.moveRight = function( cell ){
+
+    if( cell != this.lastChild  ){
+      this.cursor.insertAfter(this);
+    }
+
+    var position = this.getCellPosition( cell );
+
+    this.cursor.insertBefore(this.getCellByPosition( position, cell.parent.parent.next ).firstChild).redraw();
+    return false;  
+}
+
+/*
+  Given a cell, determine how far down its column it is
+*/
+_.getCellPosition = function( cellBlock ){
+
+   var position = 0;
+   var scanner = cellBlock.parent.firstChild;
+
+   while( scanner != cellBlock ){
+     position += 1;
+     scanner = scanner.next;
+   }
+
+   return position;
+}
+/*
+  Given a column block and a position, find the cell at that position
+*/
+_.getCellByPosition = function( position, columnBlock){
+  
+  var counter = position;
+  var scanner = columnBlock.firstChild.firstChild;
+
+  while( counter > 0 && scanner.next){
+    counter -= 1;
+    scanner = scanner.next;
+  }
+
+  return scanner;
+
+}
+/*
+ Returns how many rows are in the matrix
+*/
+_.getHeight = function(){
+  var counter = 0;
+
+  this.firstChild.firstChild.eachChild( function( child){
+    counter += 1;
+  });
+
+  return counter
+}
+
+/*
+ Is the provided cell on the bottom row of the array?
+*/
+_.isCellOnBottomRow = function( cellBlock ){
+  return this.getCellPosition( cellBlock ) + 1 == this.getHeight();
+}
+_.backspaceDown = function( e, currentBlock ){
+    if (currentBlock.isEmpty()) {
+      if (currentBlock.prev) {
+        this.cursor.appendTo(currentBlock.prev)
+        currentBlock.prev.next = currentBlock.next;
+      }
+      else {
+        this.cursor.insertBefore(this);
+        this.firstChild = currentBlock.next;
+      }
+
+      if (currentBlock.next)
+        currentBlock.next.prev = currentBlock.prev;
+      else
+        this.lastChild = currentBlock.prev;
+
+      currentBlock.jQ.remove();
+      if (this.isEmpty())
+        this.cursor.deleteForward();
+      else
+        this.cursor.redraw();
+
+      return false;
+    }
+    else if (!this.cursor.prev)
+      return false;
+    return this.parent.keydown(e);
+};
+
+LatexCmds.array = ArrayCmd;
+
+/****************************
+ Array Column is a customized version of Array used internally in an Array
+ There is one Array Column object for each Column in an Array.
+*****************************/
+
+function ArrayColumn(replacedFragment) {
+  MathCommand.call(this, '\\arrayColumn', undefined, undefined, replacedFragment);
+}
+_ = ArrayColumn.prototype = new MathCommand;
+_.html_template = ['<span class="array"></span>', '<span></span>'];
+_.latex = $.noop() // ArrayColumn is not setup to create latex.  Call latex() of ArrayCmd instead
+_.text = function() {
+  return '[' + this.foldChildren([], function(latex, child) {
+    text.push(child.text());
+    return text;
+  }).join() + ']';
+}
+_.placeCursor = function(cursor) {
+  this.cursor = cursor.appendTo(this.firstChild);
+};
+_.keydown = function(e) {
+
+  var currentBlock = this.cursor.parent;
+
+  if (currentBlock.parent === this) {
+    if (e.which === 8) { //backspace
+      return this.backspaceDown( e, currentBlock );
+    }
+  }
+  return this.parent.keydown(e);
+};
+_.addCell = function(){
+
+    currentBlock = this.lastChild;
+
+    var newBlock = new MathBlock;
+    newBlock.parent = this;
+    newBlock.jQ = $('<span></span>')
+      .data(jQueryDataKey, {block: newBlock})
+      .insertAfter(currentBlock.jQ);
+
+    // Manage the link structure of the new Block
+    if (currentBlock.next)
+      currentBlock.next.prev = newBlock;
+    else
+      this.lastChild = newBlock;
+    newBlock.next = currentBlock.next;
+    currentBlock.next = newBlock;
+    newBlock.prev = currentBlock;
+
+    // set the cursor in the new block
+    this.cursor.appendTo(newBlock).redraw();
+
+    return false; 
+};
+_.backspaceDown = function( e, currentBlock ){
+    if (currentBlock.isEmpty()) {
+      if (currentBlock.prev) {
+        this.cursor.appendTo(currentBlock.prev)
+        currentBlock.prev.next = currentBlock.next;
+      }
+      else {
+        this.cursor.insertBefore(this);
+        this.firstChild = currentBlock.next;
+      }
+
+      if (currentBlock.next)
+        currentBlock.next.prev = currentBlock.prev;
+      else
+        this.lastChild = currentBlock.prev;
+
+      currentBlock.jQ.remove();
+      if (this.isEmpty())
+        this.cursor.deleteForward();
+      else
+        this.cursor.redraw();
+
+      return false;
+    }
+    else if (!this.cursor.prev)
+      return false;
+    return this.parent.keydown(e);
+};
+
+
+LatexCmds.arrayColumn = ArrayColumn;
+
+
 
 LatexCmds.editable = proto(RootMathCommand, function() {
   MathCommand.call(this, '\\editable');
