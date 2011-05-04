@@ -71,6 +71,7 @@ function createRoot(jQ, root, textbox, editable) {
   }).bind('keypress.mathquill', function(e) {
     //on auto-repeated key events, keypress may get triggered but not keydown
     //  (see Wiki page "Keyboard Events")
+
     if (lastKeydn.happened)
       lastKeydn.happened = false;
     else
@@ -100,7 +101,7 @@ function createRoot(jQ, root, textbox, editable) {
     $(document).mousemove(docmousemove).mouseup(mouseup);
 
     setTimeout(function(){textarea.focus();});
-  }).bind('selectstart.mathquill', {}, $.noop ).blur();
+  }).bind('selectstart.mathquill', false).blur();
 
   function mousemove(e) {
     cursor.seek($(e.target), e.pageX, e.pageY);
@@ -144,14 +145,23 @@ _.renderLatex = function(latex) {
   this.cursor.appendTo(this).writeLatex(latex);
   this.blur();
 };
+/*
+  Keypresses have to be collected from a number of different listeners,
+  due to the variations of the keys and the way browsers broadcast them.
+
+  Once the keypresses are collected, they're sent to this function
+  to figure out what to actually do with them.
+*/
 _.keydown = function(e)
 {
+  //console.log(" UNIVERSAL KEYDOWN", e)
   this.skipTextInput = true;
   e.ctrlKey = e.ctrlKey || e.metaKey;
   switch ((e.originalEvent && e.originalEvent.keyIdentifier) || e.which) {
   case 8: //backspace
   case 'Backspace':
   case 'U+0008':
+    e.preventDefault(); // for IE7 - which would otherwise go back one webpage
     if (e.ctrlKey)
       while (this.cursor.prev || this.cursor.selection)
         this.cursor.backspace();
