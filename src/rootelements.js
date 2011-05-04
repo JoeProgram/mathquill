@@ -369,6 +369,9 @@ _.initBlocks = function() {
   this.firstChild.parent = this;
   this.firstChild.jQ = this.jQ;
 };
+_.latex = function() {
+  return '$' + this.firstChild.latex() + '$';
+};
 
 function RootTextBlock(){}
 _ = RootTextBlock.prototype = new MathBlock;
