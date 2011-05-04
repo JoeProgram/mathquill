@@ -397,6 +397,8 @@ LatexCmds.clubsuit = bind(VanillaSymbol, '\\clubsuit', '&#9827;');
 LatexCmds.diamondsuit = bind(VanillaSymbol, '\\diamondsuit', '&#9826;');
 LatexCmds.heartsuit = bind(VanillaSymbol, '\\heartsuit', '&#9825;');
 LatexCmds.spadesuit = bind(VanillaSymbol, '\\spadesuit', '&#9824;');
+LatexCmds.checkmark = bind(VanillaSymbol, '\\checkmark', '&#10003;');
+LatexCmds.XSolidBrush = bind(VanillaSymbol, '\\"XSolidBrush','&#10007;' );
 
 //variable-sized
 LatexCmds.oint = bind(VanillaSymbol, '\\oint', '&#8750;');
