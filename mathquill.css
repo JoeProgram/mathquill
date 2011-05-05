@@ -302,6 +302,8 @@
 
 .mathquill-rendered-math .array > span {
   display: block;
+  padding-right: .2em;
+  padding-left: .2em;
 }
 
 .mathquill-rendered-math .matrix > span {
