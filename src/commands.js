@@ -625,7 +625,12 @@ function ArrayCmd(replacedFragment, latex) {
 
   MathCommand.call(this, '\\array', undefined, undefined, replacedFragment);
   this.hasCursor = false;
-  this.data = this.parseLatex(latex);
+
+  if( latex ){
+    this.data = this.parseLatex(latex);
+  } else {
+    this.data = [[""]];
+  }
 
 }
 _ = ArrayCmd.prototype = new MathCommand;
@@ -634,6 +639,13 @@ _.parseLatex = function( latex ) {
 
   //split the latex and determine the basic info about it
   var match = /\\begin{array}{((c|l|r)*)}(.+?)\\end{array}/.exec( latex );
+  
+  // If we get a string that doesn't match, we've got some corrupted data
+  // so just return a blank array
+  if( !match ){
+    return [[""]];
+  }
+
   var tokens = match[3].split(/ \\\\ /g);
   var number_of_columns = match[1].length;
 
@@ -713,10 +725,6 @@ _.placeCursor = function(cursor) {
 
 // adds a new Column
 _.addColumn = function( data ){
-
-  if( data == undefined){
-    data = [""];
-  }
 
 //  this.cursor.appendTo( this.lastChild );
   var columnBlock = this.lastChild;
@@ -974,7 +982,7 @@ function ArrayColumn(replacedFragment, latexList) {
   MathCommand.call(this, '\\arrayColumn', undefined, undefined, replacedFragment);
 
   this.hasCursor = false;
-  this.latexList = latexList || [""];
+  this.latexList = latexList;
 }
 _ = ArrayColumn.prototype = new MathCommand;
 _.html_template = ['<span class="array"></span>', '<span></span>'];
@@ -987,12 +995,23 @@ _.text = function() {
 }
 _.placeCursor = function(cursor) {
 
-  console.log( "Array Column place Cursor");
-
   this.cursor = cursor.appendTo(this.firstChild);
 
   if( !this.hasCursor ){
     this.hasCursor = true;
+    
+    // If this is missing a latex list,
+    // we create a blank one the height of array
+
+    console.log( this.latexList );
+
+    if( !this.latexList ){
+      this.latexList = []
+      for( var i = 0; i < this.parent.parent.getHeight(); i++ ){
+        this.latexList.push("");
+      }
+    }
+
     this.setFromLatex();
   }
 };
@@ -1016,6 +1035,11 @@ _.keydown = function(e) {
   }
   return this.parent.keydown(e);
 };
+/**
+  * Adds a cell onto the bottom of the column.
+  *
+  * @param latex: an OPTIONAL parameter of the latex inside the cell
+  */
 _.addCell = function( latex ){
 
     currentBlock = this.lastChild;
@@ -1031,7 +1055,12 @@ _.addCell = function( latex ){
     currentBlock.next = newBlock;
     newBlock.prev = currentBlock;
 
-    this.setCellFromLatex( newBlock, latex );
+    // A cell may come with default latex, or it may be empty
+    if( latex ){
+      this.setCellFromLatex( newBlock, latex );
+    }
+
+    this.cursor.appendTo( newBlock ).redraw();
 
     return false; 
 };
