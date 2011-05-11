@@ -688,15 +688,18 @@ _.text = function() {
   }).join() + ']';
 }
 _.placeCursor = function(cursor) {
+  
+    this.cursor = cursor.appendTo(this.firstChild);
 
-  this.cursor = cursor.appendTo(this.firstChild);
-
-  // If this is the very first time place cursor is called,
-  // call it on the child column too
+  // If this is the first time this has been called,
+  // finish the initialization that requires the cursor.
   if( ! this.hasCursor ){
     this.hasCursor = true;
     for( var i = 0; i < this.data.length; i++ ){
 
+      // SPECIAL CASE: Since the command already has a block in it,
+      //   for the first time through the loop, we just insert a column into the block
+      //   rather than adding a new one
       if( i == 0 ){
         this.cursor.appendTo(this.firstChild).redraw();
         this.cursor.insertNew( new ArrayColumn( null, this.data[i])).redraw();
@@ -705,6 +708,7 @@ _.placeCursor = function(cursor) {
       }
     }
   }
+
 };
 
 // adds a new Column
@@ -836,21 +840,24 @@ _.leftDown = function( e, currentBlock, columnBlock ){
 }
 _.moveLeft = function( cell ){
 
-  if( cell != this.lastChild  ){
+  // if this cell is on the left end of the matrix, move it off the matrix
+  if( cell.parent == this.firstChild.firstChild ){
     this.cursor.insertBefore(this);
-  }
 
-  var position = this.getCellPosition( cell );
-  var new_cell = this.getCellByPosition( position, cell.parent.parent.prev );
-  this.cursor.appendTo(new_cell).redraw();
+  // otherwise, move one position over
+  } else {
+    var position = this.getCellPosition( cell );
+    var new_cell = this.getCellByPosition( position, cell.parent.parent.prev );
+    this.cursor.appendTo(new_cell).redraw();
+  }
 
   return false;
 }
 _.rightDown = function( e, currentBlock, columnBlock ){
+  
   // check to make sure we're in a cell and not a column
-
   if( currentBlock != columnBlock ){
-    if(!this.cursor.next ){
+    if( !this.cursor.next ){
       return this.moveRight( currentBlock );
     }
   }
@@ -859,13 +866,16 @@ _.rightDown = function( e, currentBlock, columnBlock ){
 }
 _.moveRight = function( cell ){
 
-    if( cell != this.lastChild  ){
+    // if this cell is on the right end of the matrix, move it off the matrix
+    if( cell.parent == this.lastChild.lastChild ){
       this.cursor.insertAfter(this);
-    }
 
-    var position = this.getCellPosition( cell );
-    var new_cell = this.getCellByPosition( position, cell.parent.parent.next );
-    this.cursor.prependTo(new_cell).redraw()
+    // otherwise, move one position over
+    } else {
+      var position = this.getCellPosition( cell );
+      var new_cell = this.getCellByPosition( position, cell.parent.parent.next );
+      this.cursor.prependTo(new_cell).redraw();
+    }
     
     return false;  
 }
@@ -921,6 +931,7 @@ _.isCellOnBottomRow = function( cellBlock ){
   return this.getCellPosition( cellBlock ) + 1 == this.getHeight();
 }
 _.backspaceDown = function( e, currentBlock ){
+
     if (currentBlock.isEmpty()) {
       if (currentBlock.prev) {
         this.cursor.appendTo(currentBlock.prev)
@@ -975,6 +986,9 @@ _.text = function() {
   }).join() + ']';
 }
 _.placeCursor = function(cursor) {
+
+  console.log( "Array Column place Cursor");
+
   this.cursor = cursor.appendTo(this.firstChild);
 
   if( !this.hasCursor ){
@@ -1028,32 +1042,33 @@ _.setCellFromLatex = function( cellBlock, latex ){
   
 }
 _.backspaceDown = function( e, currentBlock ){
-    if (currentBlock.isEmpty()) {
-      if (currentBlock.prev) {
-        this.cursor.appendTo(currentBlock.prev)
-        currentBlock.prev.next = currentBlock.next;
+
+    // If there is something in front of the cursor,
+    // we treat backspace normally
+    if( this.cursor.prev ){
+      return this.parent.keydown(e);
+
+    // If there isn't anything in front of the cursor,
+    // we treat it like a special version of pressing the left key
+    } else {
+
+      // Check if the cell is in the left-most column
+      if( this.parent == this.parent.parent.firstChild ){
+
+        // Check if the cell is in the top row.
+        if( this.firstChild == currentBlock){
+          this.parent.parent.moveLeft( currentBlock );
+        } else {
+          var position = this.parent.parent.getCellPosition( currentBlock );
+          this.cursor.appendTo(this.parent.parent.getCellByPosition( position - 1, this.parent.parent.lastChild ));
+        }
+      } else {
+        this.parent.parent.moveLeft( currentBlock );
       }
-      else {
-        this.cursor.insertBefore(this);
-        this.firstChild = currentBlock.next;
-      }
-
-      if (currentBlock.next)
-        currentBlock.next.prev = currentBlock.prev;
-      else
-        this.lastChild = currentBlock.prev;
-
-      currentBlock.jQ.remove();
-      if (this.isEmpty())
-        this.cursor.deleteForward();
-      else
-        this.cursor.redraw();
-
-      return false;
     }
-    else if (!this.cursor.prev)
-      return false;
-    return this.parent.keydown(e);
+
+    return false;
+
 };
 
 LatexCmds.editable = proto(RootMathCommand, function() {
