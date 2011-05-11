@@ -466,6 +466,8 @@ _.renderCommand = function() {
   if (latex) {
     if (cmd = LatexCmds[latex])
       cmd = new cmd(this.replacedFragment, latex);
+    else if (cmd = LatexEnvirons[latex])
+      cmd = new cmd(this.replacedFragment, latex);      
     else {
       cmd = new TextBlock(latex);
       cmd.firstChild.focus = function(){ delete this.focus; return this; };
@@ -619,24 +621,52 @@ LatexCmds.vector = Vector;
  We use ArrayCmd rather than Array,
  as Array is a data type in javascript
 *****************************/
-function ArrayCmd(replacedFragment) {
+function ArrayCmd(replacedFragment, latex) {
 
   MathCommand.call(this, '\\array', undefined, undefined, replacedFragment);
-
-  // whenever we create a new column, automatically fill it with an Array Column
-  this.firstColumn = new ArrayColumn();
-  this.hasCalledPlaceCursor = false;
+  this.hasCursor = false;
+  this.data = this.parseLatex(latex);
 
 }
 _ = ArrayCmd.prototype = new MathCommand;
-_.html_template = ['<span class="matrix"><span></span></span>', '<span></span>'];
+_.html_template = ['<span class="matrix"></span>', '<span></span>'];
+_.parseLatex = function( latex ) {
+
+  //split the latex and determine the basic info about it
+  var match = /\\begin{array}{((c|l|r)*)}(.+?)\\end{array}/.exec( latex );
+  var tokens = match[3].split(/ \\\\ /g);
+  var number_of_columns = match[1].length;
+
+  // break up the individual rows
+  var data = [];
+  var height = 0;
+  for( var i = 0; i < tokens.length; i++ ){
+    var row_tokens = tokens[i].split(/ & /g);
+    data.push( row_tokens );
+    height = Math.max( height, row_tokens.length );
+  }
+
+  // we invert the 2d matrix, since LaTeX is in rows,
+  // but we display in columns
+  var result = [];
+  for( var i = 0; i < data.length; i++){
+    for( var j = 0; j < height ; j++ ){
+      while( result.length <= j ){
+        result.push([]);
+      }
+      result[j][i] = data[i][j];
+    }  
+  }
+
+  return result;
+}
 _.latex = function() {
 
   var result = [];
   var columns = ""
 
   // count the number of columns and store it
-  this.eachChild( function( columnBlock){
+  this.eachChild( function( columnBlock ){
     columns += "c"
   });
   columns = "{" + columns + "}"
@@ -663,10 +693,39 @@ _.placeCursor = function(cursor) {
 
   // If this is the very first time place cursor is called,
   // call it on the child column too
-  if( ! this.hasCalledPlaceCursor ){
-    this.hasCalledPlaceCursor = true;
-    cursor.insertNew( this.firstColumn )
+  if( ! this.hasCursor ){
+    this.hasCursor = true;
+    for( var i = 0; i < this.data.length; i++ ){
+
+      if( i == 0 ){
+        this.cursor.appendTo(this.firstChild).redraw();
+        this.cursor.insertNew( new ArrayColumn( null, this.data[i])).redraw();
+      } else {
+        this.addColumn( this.data[i] );
+      }
+    }
   }
+};
+
+// adds a new Column
+_.addColumn = function( data ){
+
+  if( data == undefined){
+    data = [""];
+  }
+
+//  this.cursor.appendTo( this.lastChild );
+  var columnBlock = this.lastChild;
+  var newBlock = new MathBlock;
+  newBlock.parent = this;
+  newBlock.jQ = $('<span class="test" ></span>').data(jQueryDataKey, {block: newBlock}).appendTo(this.jQ);
+  this.lastChild = newBlock;
+  columnBlock.next = newBlock;
+  newBlock.prev = columnBlock;
+
+  this.cursor.appendTo(newBlock);    
+  this.cursor.insertNew( new ArrayColumn( null, data ) ).redraw();
+
 };
 _.keydown = function(e) {
 
@@ -746,23 +805,7 @@ _.tabDown = function( e, currentBlock, columnBlock ){
 
       // If the column has any text in it, we want to create a new column
       }else{
-
-        var newBlock = new MathBlock;
-        newBlock.parent = this;
-        newBlock.jQ = $('<span></span>').data(jQueryDataKey, {block: newBlock}).appendTo(this.jQ);
-        this.lastChild = newBlock;
-        columnBlock.next = newBlock;
-        newBlock.prev = columnBlock;
-        this.cursor.appendTo(newBlock).redraw();
-
-        // whenever we create a new column, automatically fill it with an Array Column
-        var column = new ArrayColumn();
-        this.cursor.insertNew( column );
-
-        for( var i = 1; i < this.getHeight(); i++ ){
-          column.addCell();          
-        }
-  
+        this.addColumn();  
       }
     
     // if there is a column to the right of this one, give that one focus
@@ -798,7 +841,9 @@ _.moveLeft = function( cell ){
   }
 
   var position = this.getCellPosition( cell );
-  this.cursor.insertAfter(this.getCellByPosition( position, cell.parent.parent.prev ).lastChild).redraw();
+  var new_cell = this.getCellByPosition( position, cell.parent.parent.prev );
+  this.cursor.appendTo(new_cell).redraw();
+
   return false;
 }
 _.rightDown = function( e, currentBlock, columnBlock ){
@@ -819,8 +864,9 @@ _.moveRight = function( cell ){
     }
 
     var position = this.getCellPosition( cell );
-
-    this.cursor.insertBefore(this.getCellByPosition( position, cell.parent.parent.next ).firstChild).redraw();
+    var new_cell = this.getCellByPosition( position, cell.parent.parent.next );
+    this.cursor.prependTo(new_cell).redraw()
+    
     return false;  
 }
 
@@ -847,7 +893,7 @@ _.getCellByPosition = function( position, columnBlock){
   var counter = position;
   var scanner = columnBlock.firstChild.firstChild;
 
-  while( counter > 0 && scanner.next){
+  while( counter > 0 && scanner.next ){
     counter -= 1;
     scanner = scanner.next;
   }
@@ -903,15 +949,21 @@ _.backspaceDown = function( e, currentBlock ){
     return this.parent.keydown(e);
 };
 
-LatexCmds.array = ArrayCmd;
+LatexEnvirons.array = ArrayCmd;
 
 /****************************
  Array Column is a customized version of Array used internally in an Array
  There is one Array Column object for each Column in an Array.
+
+ We don't add ArrayColumn to any Latex dictionary, since it should only be used internally
 *****************************/
 
-function ArrayColumn(replacedFragment) {
+function ArrayColumn(replacedFragment, latexList) {
+
   MathCommand.call(this, '\\arrayColumn', undefined, undefined, replacedFragment);
+
+  this.hasCursor = false;
+  this.latexList = latexList || [""];
 }
 _ = ArrayColumn.prototype = new MathCommand;
 _.html_template = ['<span class="array"></span>', '<span></span>'];
@@ -924,7 +976,21 @@ _.text = function() {
 }
 _.placeCursor = function(cursor) {
   this.cursor = cursor.appendTo(this.firstChild);
+
+  if( !this.hasCursor ){
+    this.hasCursor = true;
+    this.setFromLatex();
+  }
 };
+_.setFromLatex = function(){
+  for( var i = 0; i < this.latexList.length; i++ ){
+    if( i == 0 ){
+      this.setCellFromLatex( this.firstChild, this.latexList[i] );
+    } else {
+      this.addCell( this.latexList[i]);
+    }
+  }
+}
 _.keydown = function(e) {
 
   var currentBlock = this.cursor.parent;
@@ -936,7 +1002,7 @@ _.keydown = function(e) {
   }
   return this.parent.keydown(e);
 };
-_.addCell = function(){
+_.addCell = function( latex ){
 
     currentBlock = this.lastChild;
 
@@ -947,19 +1013,20 @@ _.addCell = function(){
       .insertAfter(currentBlock.jQ);
 
     // Manage the link structure of the new Block
-    if (currentBlock.next)
-      currentBlock.next.prev = newBlock;
-    else
-      this.lastChild = newBlock;
-    newBlock.next = currentBlock.next;
+    this.lastChild = newBlock;
     currentBlock.next = newBlock;
     newBlock.prev = currentBlock;
 
-    // set the cursor in the new block
-    this.cursor.appendTo(newBlock).redraw();
+    this.setCellFromLatex( newBlock, latex );
 
     return false; 
 };
+_.setCellFromLatex = function( cellBlock, latex ){
+
+  this.cursor.appendTo(cellBlock);
+  this.cursor.writeLatex( latex ).redraw();
+  
+}
 _.backspaceDown = function( e, currentBlock ){
     if (currentBlock.isEmpty()) {
       if (currentBlock.prev) {
@@ -989,11 +1056,6 @@ _.backspaceDown = function( e, currentBlock ){
     return this.parent.keydown(e);
 };
 
-
-LatexCmds.arrayColumn = ArrayColumn;
-
-
-
 LatexCmds.editable = proto(RootMathCommand, function() {
   MathCommand.call(this, '\\editable');
   createRoot(this.jQ, this.firstChild, false, true);
@@ -1007,4 +1069,3 @@ LatexCmds.editable = proto(RootMathCommand, function() {
   };
   this.text = function(){ return this.firstChild.text(); };
 });
-

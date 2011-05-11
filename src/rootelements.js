@@ -142,7 +142,7 @@ _.renderLatex = function(latex) {
   this.jQ.children().slice(1).remove();
   this.firstChild = this.lastChild = 0;
 
-  this.cursor.appendTo(this).writeLatex(latex);
+  this.cursor.appendTo(this).writeLatex(latex).hide();
   this.blur();
 };
 /*
@@ -154,7 +154,6 @@ _.renderLatex = function(latex) {
 */
 _.keydown = function(e)
 {
-  //console.log(" UNIVERSAL KEYDOWN", e)
   this.skipTextInput = true;
   e.ctrlKey = e.ctrlKey || e.metaKey;
   switch ((e.originalEvent && e.originalEvent.keyIdentifier) || e.which) {
@@ -316,7 +315,7 @@ _.keydown = function(e)
       if (this !== this.cursor.root) //so not stopPropagation'd at RootMathCommand
         return this.parent.keydown(e);
 
-      this.cursor.writeLatex(window['MathQuill LaTeX Clipboard']).show();
+      this.cursor.writeLatex(window['MathQuill LaTeX Clipboard']);
       e.preventDefault();
     }
     else

@@ -52,6 +52,10 @@ _.redraw = function() {
     if (ancestor.redraw)
       ancestor.redraw();
 };
+/**
+  * This function inserts the CURSOR.
+  * It does not insert a new element.
+  */
 _.insertAt = function(parent, next, prev) {
   var old_parent = this.parent;
 
@@ -60,19 +64,36 @@ _.insertAt = function(parent, next, prev) {
   this.prev = prev;
 
   old_parent.blur(); //blur may need to know cursor's destination
+  return this;
 };
+
+/**
+  * This function inserts the CURSOR before the given element.
+  * It does not insert a new element.
+  */
 _.insertBefore = function(el) {
   this.insertAt(el.parent, el, el.prev)
   this.parent.jQ.addClass('hasCursor');
   this.jQ.insertBefore(el.jQ.first());
   return this;
 };
+/**
+  * This function inserts the CURSOR after the given element.
+  * It does not insert a new element.
+  */
 _.insertAfter = function(el) {
+
   this.insertAt(el.parent, el.next, el);
   this.parent.jQ.addClass('hasCursor');
   this.jQ.insertAfter(el.jQ.last());
+
   return this;
 };
+
+/**
+  * This function prepends the CURSOR to the given element.
+  * It does not prepend a new element 
+  */
 _.prependTo = function(el) {
   this.insertAt(el, el.firstChild, 0);
   if (el.textarea) //never insert before textarea
@@ -82,6 +103,11 @@ _.prependTo = function(el) {
   el.focus();
   return this;
 };
+
+/**
+  * This function appends the CURSOR to the given element.
+  * It does not append a new element 
+  */
 _.appendTo = function(el) {
   this.insertAt(el, 0, el.lastChild);
   this.jQ.appendTo(el.jQ);
@@ -190,13 +216,19 @@ _.seek = function(target, pageX, pageY) {
 };
 
 /*
-  Converts a LaTeX string into its MathQuill representation
+  Converts a LaTeX string into its MathQuill DOM representation
 */
 _.writeLatex = function(latex) {
   this.deleteSelection();
-  latex = ( latex && latex.match(/\\text\{([^{]|\\\{)*\}|\\begin{([a-z]*)}.+?\\end{\2}|\\[a-z]*|[^\s]/ig) ) || 0;
-  (function writeLatexBlock(cursor) {
 
+  // Newlines don't change the behavior of the latex,
+  // But they do change the behavior of javascript RegEx,
+  // So we convert them to spaces first.
+  latex = latex.replace(/\n/g," ");
+
+  latex = ( latex && latex.match(/\\text\{([^{]|\\\{)*\}|\\begin{([a-z]*)}.+?\\end{\2}|\\[a-z]*|[^\s]/ig) ) || 0;
+
+  (function writeLatexBlock(cursor) {
     while (latex.length) {
       var token = latex.shift(); //pop first item
 
@@ -225,37 +257,41 @@ _.writeLatex = function(latex) {
           latex.unshift('{'); //in the ParenBlock in the math DOM
       }
 
-      //parse environments
+      // Parse Environments
       // environments substantially change the way tokens are processed,
       // and its up the environment to break apart the tokens successfully
-      else if(/^\\begin{([a-z]+)}/.test(token)){
-        token = /^\\begin{([a-z]+)}/.exec(token);
-        token = token.slice(1);
+      else if(/^\\begin{([a-z]*)}.+?\\end{\1}$/.test(token)){
 
-        environ = LatexEnvirons[token];
+        var tokenMatch = /^\\begin{([a-z]*)}.+?\\end{\1}$/.exec(token);
+
+        cmd = LatexEnvirons[tokenMatch[1]];
         if (cmd){
-          cursor.inertNew( cmd = new cmd(undefined, token));
+          cursor.insertNew(cmd = new cmd(undefined, token));
+          cursor.insertAfter( cmd );
+          continue;
         }else{
-          cmd = new TextBlock(token);
+          cmd = new TextBlock( tokenMatch[0] );
           cursor.insertNew(cmd).insertAfter(cmd);
           continue;
         }
 
       }
 
-      // parse commands
+      // Parse Commands
       else if (/^\\[a-z]+$/i.test(token)) {
+
         token = token.slice(1);
         var cmd = LatexCmds[token];
-        if (cmd)
+        if (cmd){
           cursor.insertNew(cmd = new cmd(undefined, token));
-        else {
+        } else {
           cmd = new TextBlock(token);
           cursor.insertNew(cmd).insertAfter(cmd);
           continue; //skip recursing through children
         }
       }
       else {
+
         if (token.match(/[a-eg-zA-Z]/)) //exclude f because want florin
           cmd = new Variable(token);
         else if (cmd = LatexCmds[token])
@@ -270,15 +306,16 @@ _.writeLatex = function(latex) {
         var token = latex.shift();
         if (!token) return false;
 
-        if (token === '{')
+        if (token === '{'){
           writeLatexBlock(cursor);
-        else
+        } else {
           cursor.insertCh(token);
+        }
       });
       cursor.insertAfter(cmd);
     }
   }(this));
-  return this.hide();
+  return this;
 };
 _.write = function(ch) {
   return this.show().insertCh(ch);
@@ -306,6 +343,10 @@ _.insertCh = function(ch) {
 
   return this.insertNew(cmd);
 };
+/**
+  * Inserts a new COMMAND
+  * and places the cursor inside of it
+  */
 _.insertNew = function(cmd) {
   cmd.parent = this.parent;
   cmd.next = this.next;
@@ -588,4 +629,3 @@ _.detach = function() {
   };
   return this;
 };
-

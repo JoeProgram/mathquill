@@ -145,6 +145,16 @@ _.isEmpty = function() {
     return isEmpty && child.isEmpty();
   });
 };
+/* A debug function that parses up the entire structure
+   and returns the html */
+_.getHtmlTree = function() {
+
+  var root = this;
+  while( root.parent ){
+    root = root.parent;
+  }
+  return root.jQ.html();
+}
 
 /**
  * Lightweight command without blocks or children.
@@ -159,6 +169,18 @@ _.latex = function(){ return this.cmd; };
 _.text = function(){ return this.text_template; };
 _.placeCursor = $.noop;
 _.isEmpty = function(){ return true; };
+
+
+/**
+  MathEnvironments are similar to MathCommands 
+  except that they have an opening and closing tag.
+
+  All of the content between the opening and closing tag
+  Is up to interpretation by that environment.
+ */
+function MathEnvironment(){}
+_ = MathEnvironment.prototype = new MathCommand;
+
 
 /**
  * Children and parent of MathCommand's. Basically partitions all the

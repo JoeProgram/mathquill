@@ -41,7 +41,7 @@ $.fn.mathquill = function(cmd, latex) {
           cursor = block && block.cursor;
 
         if (cursor) {
-          cursor.writeLatex(latex);
+          cursor.writeLatex(latex).hide();
           block.blur();
         }
       });
