@@ -817,7 +817,10 @@ _.tabDown = function( e, currentBlock, columnBlock ){
 
       // If the column has any text in it, we want to create a new column
       }else{
+        var position = this.getCellPosition( currentBlock );
         this.addColumn();  
+        this.cursor.appendTo(this.getCellByPosition( position, columnBlock.next ));        
+        return false;
       }
     
     // if there is a column to the right of this one, give that one focus
@@ -938,35 +941,43 @@ _.getHeight = function(){
 _.isCellOnBottomRow = function( cellBlock ){
   return this.getCellPosition( cellBlock ) + 1 == this.getHeight();
 }
-_.backspaceDown = function( e, currentBlock ){
+_.backspaceDown = function( e, currentBlock, columnBlock ){
 
-    if (currentBlock.isEmpty()) {
-      if (currentBlock.prev) {
-        this.cursor.appendTo(currentBlock.prev)
-        currentBlock.prev.next = currentBlock.next;
-      }
-      else {
-        this.cursor.insertBefore(this);
-        this.firstChild = currentBlock.next;
-      }
-
-      if (currentBlock.next)
-        currentBlock.next.prev = currentBlock.prev;
-      else
-        this.lastChild = currentBlock.prev;
-
-      currentBlock.jQ.remove();
-      if (this.isEmpty())
-        this.cursor.deleteForward();
-      else
-        this.cursor.redraw();
-
-      return false;
+    // If we have a column, instead of a block,
+    // bubble it up
+    if( currentBlock.parent == this ){
+      return this.parent.keydown(e);
     }
-    else if (!this.cursor.prev)
-      return false;
-    return this.parent.keydown(e);
+
+    // If there is something in front of the cursor,
+    // bubble it up
+    if( this.cursor.prev ){
+      return this.parent.keydown(e);
+
+    // If there isn't anything in front of the cursor,
+    // we treat it like a special version of pressing the left key
+    } else {
+      // Check if the cell is in the left-most column
+      if( currentBlock.parent == this.firstChild.firstChild ){
+        // Check if the cell is in the top row.
+        if( currentBlock.parent.firstChild == currentBlock){
+          this.moveLeft( currentBlock );
+
+        // Otherwise, we wrap it around to the end of the previous row
+        } else {
+          var position = this.getCellPosition( currentBlock );
+          this.cursor.appendTo(this.getCellByPosition( position - 1, this.lastChild ));
+        }
+      } else {
+        this.moveLeft( currentBlock );
+      }
+
+    }
+
+    return false;
+
 };
+
 
 LatexEnvirons.array = ArrayCmd;
 
@@ -1002,9 +1013,6 @@ _.placeCursor = function(cursor) {
     
     // If this is missing a latex list,
     // we create a blank one the height of array
-
-    console.log( this.latexList );
-
     if( !this.latexList ){
       this.latexList = []
       for( var i = 0; i < this.parent.parent.getHeight(); i++ ){
@@ -1024,17 +1032,6 @@ _.setFromLatex = function(){
     }
   }
 }
-_.keydown = function(e) {
-
-  var currentBlock = this.cursor.parent;
-
-  if (currentBlock.parent === this) {
-    if (e.which === 8) { //backspace
-      return this.backspaceDown( e, currentBlock );
-    }
-  }
-  return this.parent.keydown(e);
-};
 /**
   * Adds a cell onto the bottom of the column.
   *
@@ -1070,35 +1067,6 @@ _.setCellFromLatex = function( cellBlock, latex ){
   this.cursor.writeLatex( latex ).redraw();
   
 }
-_.backspaceDown = function( e, currentBlock ){
-
-    // If there is something in front of the cursor,
-    // we treat backspace normally
-    if( this.cursor.prev ){
-      return this.parent.keydown(e);
-
-    // If there isn't anything in front of the cursor,
-    // we treat it like a special version of pressing the left key
-    } else {
-
-      // Check if the cell is in the left-most column
-      if( this.parent == this.parent.parent.firstChild ){
-
-        // Check if the cell is in the top row.
-        if( this.firstChild == currentBlock){
-          this.parent.parent.moveLeft( currentBlock );
-        } else {
-          var position = this.parent.parent.getCellPosition( currentBlock );
-          this.cursor.appendTo(this.parent.parent.getCellByPosition( position - 1, this.parent.parent.lastChild ));
-        }
-      } else {
-        this.parent.parent.moveLeft( currentBlock );
-      }
-    }
-
-    return false;
-
-};
 
 LatexCmds.editable = proto(RootMathCommand, function() {
   MathCommand.call(this, '\\editable');
