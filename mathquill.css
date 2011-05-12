@@ -295,18 +295,18 @@
   position: relative;
 }
 
-.mathquill-rendered-math .array {
+.mathquill-rendered-math .column {
   vertical-align: middle;
   text-align: center;
 }
 
-.mathquill-rendered-math .array > span {
+.mathquill-rendered-math .column > span {
   display: block;
   padding-right: .2em;
   padding-left: .2em;
 }
 
-.mathquill-rendered-math .matrix > span {
+.mathquill-rendered-math .grid > span {
   padding-right: .2em;
   padding-left: .2em;
 }

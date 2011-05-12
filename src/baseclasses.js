@@ -38,9 +38,14 @@ _.textInput = function(ch) {
  * May be passed a MathFragment that's being replaced.
  *
  * @param cmd: the latex keyword for this command
- * @param html_template: the length of this signifies the number of child blocks
+ * @param html_template: the length of this signifies the number of child blocks.
+ *        The first element in this array is added to the DOM, but does not get a block.
+ *        Each element after the first gets a block.
  *
- * @var jQ: A jQuery objects representing the html of this command.
+ *
+ * Each MathCommand has a jQ object.
+ *   This object is a jQuery object that wraps the HTML that represents this in the DOM.
+ *   jQ objects have a link back to their MathCommand object.
  */
 function MathCommand(cmd, html_template, text_template, replacedFragment) {
   if (!arguments.length) return;
@@ -57,7 +62,10 @@ function MathCommand(cmd, html_template, text_template, replacedFragment) {
 _ = MathCommand.prototype = new MathElement;
 _.initBlocks = function(replacedFragment) {
   var self = this;
-  //single-block commands
+  // Single-Block Commands:
+  // Single Block commands will have an HTML template of length 2
+  // The first element represents the HTML of the Command itself
+  // The second element will be turned into a MathBlock.
   if (self.html_template.length === 1) {
     self.firstChild =
     self.lastChild =

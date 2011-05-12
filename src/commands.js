@@ -490,7 +490,7 @@ CharCmds['\\'] = LatexCommandInput;
   
 function Binomial(replacedFragment) {
   MathCommand.call(this, '\\binom', undefined, undefined, replacedFragment);
-  this.jQ.wrapInner('<span class="array"></span>').prepend('<span class="paren">(</span>').append('<span class="paren">)</span>');
+  this.jQ.wrapInner('<span class="column"></span>').prepend('<span class="paren">(</span>').append('<span class="paren">)</span>');
 }
 _ = Binomial.prototype = new MathCommand;
 _.html_template =
@@ -521,7 +521,7 @@ function Vector(replacedFragment) {
   MathCommand.call(this, '\\vector', undefined, undefined, replacedFragment);
 }
 _ = Vector.prototype = new MathCommand;
-_.html_template = ['<span class="array"></span>', '<span></span>'];
+_.html_template = ['<span class="column"></span>', '<span></span>'];
 _.latex = function() {
   return '\\begin{matrix}' + this.foldChildren([], function(latex, child) {
     latex.push(child.latex());
@@ -634,7 +634,7 @@ function ArrayCmd(replacedFragment, latex) {
 
 }
 _ = ArrayCmd.prototype = new MathCommand;
-_.html_template = ['<span class="matrix"></span>', '<span></span>'];
+_.html_template = ['<span class="grid"></span>', '<span></span>'];
 _.parseLatex = function( latex ) {
 
   //split the latex and determine the basic info about it
@@ -647,22 +647,21 @@ _.parseLatex = function( latex ) {
   }
 
   var tokens = match[3].split(/ \\\\ /g);
-  var number_of_columns = match[1].length;
 
   // break up the individual rows
   var data = [];
-  var height = 0;
+  var width = 0;
   for( var i = 0; i < tokens.length; i++ ){
     var row_tokens = tokens[i].split(/ & /g);
     data.push( row_tokens );
-    height = Math.max( height, row_tokens.length );
+    width = Math.max( width, row_tokens.length );
   }
 
   // we invert the 2d matrix, since LaTeX is in rows,
   // but we display in columns
   var result = [];
   for( var i = 0; i < data.length; i++){
-    for( var j = 0; j < height ; j++ ){
+    for( var j = 0; j < width ; j++ ){
       while( result.length <= j ){
         result.push([]);
       }
@@ -723,14 +722,19 @@ _.placeCursor = function(cursor) {
 
 };
 
-// adds a new Column
+/**
+  * Adds a column to the end of the array
+  *
+  * @param data: an OPTIONAL 1-dimensional array 
+  *   of each of the latex expressions
+  *   to put into the cells of the column
+  */
 _.addColumn = function( data ){
 
-//  this.cursor.appendTo( this.lastChild );
   var columnBlock = this.lastChild;
   var newBlock = new MathBlock;
   newBlock.parent = this;
-  newBlock.jQ = $('<span class="test" ></span>').data(jQueryDataKey, {block: newBlock}).appendTo(this.jQ);
+  newBlock.jQ = $('<span></span>').data(jQueryDataKey, {block: newBlock}).appendTo(this.jQ);
   this.lastChild = newBlock;
   columnBlock.next = newBlock;
   newBlock.prev = columnBlock;
@@ -745,7 +749,6 @@ _.keydown = function(e) {
 
   // Sometimes we'll get the cell block,
   // Sometimes we'll get the column block
-  // So we standardize to the column block
   var columnBlock = currentBlock
   while( columnBlock.parent != this ){
     columnBlock = columnBlock.parent;
@@ -957,8 +960,52 @@ _.backspaceDown = function( e, currentBlock, columnBlock ){
     // If there isn't anything in front of the cursor,
     // we treat it like a special version of pressing the left key
     } else {
+
       // Check if the cell is in the left-most column
       if( currentBlock.parent == this.firstChild.firstChild ){
+
+        var is_bottom = this.isCellOnBottomRow( currentBlock );
+
+        // Check if the cell is in the top row.
+        if( currentBlock.parent.firstChild == currentBlock){
+          this.moveLeft( currentBlock );
+
+        // Otherwise, we wrap it around to the end of the previous row          
+        } else {
+          var position = this.getCellPosition( currentBlock );
+          this.cursor.appendTo(this.getCellByPosition( position - 1, this.lastChild ));
+        }
+
+        // Check if the cell was on the bottom row,
+        // and if the bottom row is competely empty
+        var scanner = this.firstChild;
+        var remove_row = true;
+        while( scanner ){
+          if( !scanner.firstChild.lastChild.isEmpty() ){
+            removeRow = false;
+            break;
+          }
+          scanner = scanner.next;
+        }
+
+        if( remove_row ){
+          scanner = this.firstChild;
+
+          while( scanner ){
+            scanner.firstChild.lastChild.prev.next = null;
+            scanner.firstChild.lastChild.remove();
+          }
+           
+          scanner = scanner.next;
+        }
+
+
+        // Check if the cell is on the bottom row.
+        if( this.isCellOnBottomRow( currentBlock )){
+          var position = this.getCellPosition( currentBlock );
+          this.cursor.appendTo(this.getCellByPosition( position - 1, this.lastChild ));
+        }
+
         // Check if the cell is in the top row.
         if( currentBlock.parent.firstChild == currentBlock){
           this.moveLeft( currentBlock );
@@ -968,6 +1015,7 @@ _.backspaceDown = function( e, currentBlock, columnBlock ){
           var position = this.getCellPosition( currentBlock );
           this.cursor.appendTo(this.getCellByPosition( position - 1, this.lastChild ));
         }
+
       } else {
         this.moveLeft( currentBlock );
       }
@@ -996,7 +1044,7 @@ function ArrayColumn(replacedFragment, latexList) {
   this.latexList = latexList;
 }
 _ = ArrayColumn.prototype = new MathCommand;
-_.html_template = ['<span class="array"></span>', '<span></span>'];
+_.html_template = ['<span class="column"></span>', '<span></span>'];
 _.latex = $.noop() // ArrayColumn is not setup to create latex.  Call latex() of ArrayCmd instead
 _.text = function() {
   return '[' + this.foldChildren([], function(latex, child) {
@@ -1067,6 +1115,100 @@ _.setCellFromLatex = function( cellBlock, latex ){
   this.cursor.writeLatex( latex ).redraw();
   
 }
+
+
+/****************************
+  Support for the Cases latex environment
+
+  It's very similar to an array, 
+  except that it has one left curly brace in front of it
+  and takes different parameters.
+
+  It's used for systems of equations
+  and piecemeal functions.
+*****************************/
+function Cases(replacedFragment, latex) {
+
+  MathCommand.call(this, '\\cases', undefined, undefined, replacedFragment);
+  this.hasCursor = false;
+
+  if( latex ){
+    this.data = this.parseLatex(latex);
+  } else {
+    this.data = [[""]];
+  }
+
+}
+_ = Cases.prototype = new ArrayCmd;
+_.html_template = ['<span><span class="paren">{</span><span class="grid"></span></span>', '<span></span>'];
+_.redraw = function() {
+  var block = this.firstChild.jQ;
+  this.jQ.find(".paren").css('fontSize', block.outerHeight()/(+block.css('fontSize').slice(0,-2)*1.02)+'em');;
+};
+
+/**
+  * Cases parse latex a little differently than arrays
+  *   as cases don't have a columns argument 
+  */
+_.parseLatex = function( latex ) {
+
+  //split the latex and determine the basic info about it
+  var match = /\\begin{cases}(.+?)\\end{cases}/.exec( latex );
+  
+  // If we get a string that doesn't match, we've got some corrupted data
+  // so just return a blank array
+  if( !match ){
+    return [[""]];
+  }
+
+  var tokens = match[1].split(/ \\\\ /g);
+
+  // break up the individual rows
+  var data = [];
+  var width = 0;
+  for( var i = 0; i < tokens.length; i++ ){
+    var row_tokens = tokens[i].split(/ & /g);
+    data.push( row_tokens );
+    width = Math.max( width, row_tokens.length );
+  }
+
+  // we invert the 2d matrix, since LaTeX is in rows,
+  // but we display in columns
+  var result = [];
+  for( var i = 0; i < data.length; i++){
+    for( var j = 0; j < width ; j++ ){
+      while( result.length <= j ){
+        result.push([]);
+      }
+      result[j][i] = data[i][j];
+    }  
+  }
+
+  return result;
+}
+/**
+  * Cases write latex a little differently than arrays,
+  * as cases don't have columns argument
+  **/
+_.latex = function() {
+
+  var result = [];
+  var columns = ""
+
+  // create a one dimensional array
+  // of the contents of each row
+  for( var i = 0; i < this.getHeight(); i++){
+    var data = [];
+    this.eachChild( function( columnBlock ){
+      data.push( this.getCellByPosition(i, columnBlock ).latex() );
+    });
+    result.push( data.join(' & ') )
+  }
+
+  return '\\begin{cases}' + " " + result.join(' \\\\ ') + ' \\end{cases}';
+};
+LatexEnvirons.cases = Cases;
+
 
 LatexCmds.editable = proto(RootMathCommand, function() {
   MathCommand.call(this, '\\editable');
