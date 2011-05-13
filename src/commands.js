@@ -956,86 +956,95 @@ _.backspaceDown = function( e, currentBlock, columnBlock ){
     // bubble it up
     if( this.cursor.prev ){
       return this.parent.keydown(e);
+    }
+    // Special case: check if this is the only cell
+    // and it is empty.  If so, delete this array.
+    if( this.firstChild == this.lastChild && this.firstChild.firstChild.firstChild == this.lastChild.lastChild.lastChild ){
+      this.cursor.insertBefore( this );
+      this.prev.next = this.next;
+      this.next.prev = this.prev;
+      this.jQ.remove();
+      return false;
+    }
 
     // If there isn't anything in front of the cursor,
     // we treat it like a special version of pressing the left key
-    } else {
+    
+    // Check if the cell is in the left-most column
+    if( currentBlock.parent == this.firstChild.firstChild ){
 
-      // Check if the cell is in the left-most column
-      if( currentBlock.parent == this.firstChild.firstChild ){
+      var is_bottom = this.isCellOnBottomRow( currentBlock );
 
-        var is_bottom = this.isCellOnBottomRow( currentBlock );
-
-        // Check if the cell is in the top row.
-        if( currentBlock.parent.firstChild == currentBlock){
-          this.moveLeft( currentBlock );
-
-        // Otherwise, we wrap it around to the end of the previous row          
-        } else {
-          var position = this.getCellPosition( currentBlock );
-          this.cursor.appendTo(this.getCellByPosition( position - 1, this.lastChild ));
-        }
-
-        // Check if the cell was on the bottom row,
-        if( is_bottom ){
-
-          // Check if the bottom row is completely empty
-          var scanner = this.firstChild;
-          var remove_row = true;
-          while( scanner ){
-
-            if( !scanner.firstChild.lastChild.isEmpty() ){
-              remove_row = false;
-              break;
-            }
-            scanner = scanner.next;
-          }
-
-          // If it is, remove the bottom row from the array
-          if( remove_row ){
-            scanner = this.firstChild;
-
-            while( scanner ){
-
-              scanner.firstChild.lastChild.jQ.remove();
-              delete scanner.firstChild.lastChild.prev.next;
-              scanner.firstChild.lastChild = scanner.firstChild.lastChild.prev;
-
-              scanner = scanner.next;
-            }
-          }
-          this.cursor.redraw();
-        }
-
-      } else {
-
-        var old_block = currentBlock;
-
+      // Check if the cell is in the top row.
+      if( currentBlock.parent.firstChild == currentBlock){
         this.moveLeft( currentBlock );
 
-        // check if cell is in the right-most column
-        // and if that column is empty
-        var is_empty = this.lastChild.firstChild.isEmpty();
-        var is_right = false;
-        var scanner = this.lastChild.firstChild.firstChild;
+      // Otherwise, we wrap it around to the end of the previous row          
+      } else {
+        var position = this.getCellPosition( currentBlock );
+        this.cursor.appendTo(this.getCellByPosition( position - 1, this.lastChild ));
+      }
+
+      // Check if the cell was on the bottom row,
+      if( is_bottom ){
+
+        // Check if the bottom row is completely empty
+        var scanner = this.firstChild;
+        var remove_row = true;
         while( scanner ){
 
-          if( scanner == old_block ){
-            is_right = true;
+          if( !scanner.firstChild.lastChild.isEmpty() ){
+            remove_row = false;
             break;
           }
-
           scanner = scanner.next;
         }
 
-        // If backspace is pressed on the empty, right-most column,
-        // remove it
-        if( is_right && is_empty ){
-          this.lastChild.jQ.remove();
-          this.lastChild = this.lastChild.prev;
-          delete this.lastChild.next;
-          this.cursor.redraw();
+        // If it is, remove the bottom row from the array
+        if( remove_row ){
+          scanner = this.firstChild;
+
+          while( scanner ){
+
+            scanner.firstChild.lastChild.jQ.remove();
+            delete scanner.firstChild.lastChild.prev.next;
+            scanner.firstChild.lastChild = scanner.firstChild.lastChild.prev;
+
+            scanner = scanner.next;
+          }
         }
+        this.cursor.redraw();
+      }
+
+    // If the cell is NOT in the left-most column
+    } else {
+
+      var old_block = currentBlock;
+
+      this.moveLeft( currentBlock );
+
+      // check if cell is in the right-most column
+      // and if that column is empty
+      var is_empty = this.lastChild.firstChild.isEmpty();
+      var is_right = false;
+      var scanner = this.lastChild.firstChild.firstChild;
+      while( scanner ){
+
+        if( scanner == old_block ){
+          is_right = true;
+          break;
+        }
+
+        scanner = scanner.next;
+      }
+
+      // If backspace is pressed on the empty, right-most column,
+      // remove it
+      if( is_right && is_empty ){
+        this.lastChild.jQ.remove();
+        this.lastChild = this.lastChild.prev;
+        delete this.lastChild.next;
+        this.cursor.redraw();
       }
     }
 
