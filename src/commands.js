@@ -854,8 +854,15 @@ _.leftDown = function( e, currentBlock, columnBlock ){
 }
 _.moveLeft = function( cell ){
 
+  // if we're starting to select across multiple cells,
+  // expand the selection to the full array
+  if( this.cursor.selection ){
+    this.cursor.clearSelection();
+    this.cursor.insertBefore( this );
+    this.cursor.selection = new Selection(this.parent, this.prev, this.next);
+
   // if this cell is on the left end of the matrix, move it off the matrix
-  if( cell.parent == this.firstChild.firstChild ){
+  } else if( cell.parent == this.firstChild.firstChild ){
     this.cursor.insertBefore(this);
 
   // otherwise, move one position over
@@ -880,8 +887,16 @@ _.rightDown = function( e, currentBlock, columnBlock ){
 }
 _.moveRight = function( cell ){
 
+    // if we're starting to select across multiple cells,
+    // expand the selection to the full array
+    if( this.cursor.selection ){
+      this.cursor.clearSelection();
+      this.cursor.insertAfter( this );
+      this.cursor.selection = new Selection(this.parent, this.prev, this.next);
+
+
     // if this cell is on the right end of the matrix, move it off the matrix
-    if( cell.parent == this.lastChild.lastChild ){
+    } else if( cell.parent == this.lastChild.lastChild ){
       this.cursor.insertAfter(this);
 
     // otherwise, move one position over
