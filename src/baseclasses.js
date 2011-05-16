@@ -142,6 +142,10 @@ _.remove = function() {
   return self;
 };
 _.respace = $.noop; //placeholder for context-sensitive spacing
+/**
+  * placeCursor is called when the MathCommand is being added into the DOM
+  * it is NOT called everytime the cursor enters the command's blocks.
+  */
 _.placeCursor = function(cursor) {
   //append the cursor to the first empty child, or if none empty, the last one
   cursor.appendTo(this.foldChildren(this.firstChild, function(prev, child) {
@@ -188,7 +192,7 @@ _.isEmpty = function(){ return true; };
  */
 function MathEnvironment(){}
 _ = MathEnvironment.prototype = new MathCommand;
-
+_.parseLatex = $.noop;  // Overwrite this to interpret the data that is passed into the environment
 
 /**
  * Children and parent of MathCommand's. Basically partitions all the

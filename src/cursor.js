@@ -12,6 +12,9 @@ JS environment could actually contain many instances. */
 //A fake cursor in the fake textbox that the math is rendered in.
 function Cursor(root) {
   this.parent = this.root = root;
+
+  // A cursor's _jQ variable serves as a template for its HTML
+  // when the cursor was removed from the DOM and needs to be re-added
   var jQ = this.jQ = this._jQ = $('<span class="cursor"></span>');
 
   //closured for setInterval
@@ -47,6 +50,10 @@ _.hide = function() {
   this.jQ = $();
   return this;
 };
+/**
+  * Redraw adjusts the css and spacing on a page
+  * It does not affect the HTML structure itself.
+  */
 _.redraw = function() {
   for (var ancestor = this.parent; ancestor; ancestor = ancestor.parent)
     if (ancestor.redraw)
