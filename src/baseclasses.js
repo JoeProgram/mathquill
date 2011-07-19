@@ -142,6 +142,7 @@ _.remove = function() {
   return self;
 };
 _.respace = $.noop; //placeholder for context-sensitive spacing
+_.postProcess = $.noop; //placeholder for post-processing step after children are inserted
 /**
   * placeCursor is called when the MathCommand is being added into the DOM
   * it is NOT called everytime the cursor enters the command's blocks.

@@ -17,7 +17,7 @@
  * \end{array}
  **************************/
 
-var CharCmds = {}, LatexCmds = {}, LatexEnvirons = {}; //single character commands, LaTeX commands, LaTeX environments
+var CharCmds = {}, LatexCmds = {}, LatexEnvirons = {}, ComboCmds = {}; //single character commands, LaTeX commands, LaTeX environments, special case combo commands
 
 function proto(parent, child) { //shorthand for prototyping
   child.prototype = parent.prototype;
@@ -150,6 +150,53 @@ _.placeCursor = function(cursor) {
 
 CharCmds['/'] = LiveFraction;
 
+/**************************************
+ * Stackrel is used to place one thing arbitrarily
+ * on top of another 
+ ***************************************/
+
+function Stackrel(replacedFragment) {
+  MathCommand.call(this, '\\stackrel', undefined, undefined, replacedFragment);
+  this.jQ.append('<span style="width:0">&nbsp;</span>');
+}
+_ = Stackrel.prototype = new MathCommand;
+_.html_template = [
+  '<span class="stackrel"></span>',
+  '<span class="stackrel_top"></span>',
+  '<span class="stackrel_bottom"></span>'
+];
+_.text_template = ['(', '/', ')'];
+LatexCmds.stackrel = Stackrel;
+
+function Overline(replacedFragment) {
+  MathCommand.call(this, '\\overline', undefined, undefined, replacedFragment);
+}
+_ = Overline.prototype = new MathCommand;
+_.html_template = [
+  '<span class="overline"></span>',
+];
+LatexCmds.overline = Overline;
+
+function OverRightArrow(replacedFragment) {
+  MathCommand.call(this, '\\overrightarrow', undefined, undefined, replacedFragment);
+}
+_ = OverRightArrow.prototype = new MathCommand;
+_.html_template = [
+  '<span class="overhead"><span class="overrightarrow">&rarr;</span></span>',
+  '<span class="overline"></span>'
+];
+LatexCmds.overrightarrow = OverRightArrow;
+
+function OverLeftRightArrow(replacedFragment) {
+  MathCommand.call(this, '\\overleftrightarrow', undefined, undefined, replacedFragment);
+}
+_ = OverLeftRightArrow.prototype = new MathCommand;
+_.html_template = [
+  '<span class="overhead"><span class="overleftarrow">&larr;</span><span class="overrightarrow">&rarr;</span></span>',
+  '<span class="overline"></span>'
+];
+LatexCmds.overleftrightarrow = OverLeftRightArrow;
+
 function SquareRoot(replacedFragment) {
   MathCommand.call(this, '\\sqrt', undefined, undefined, replacedFragment);
 }
@@ -167,7 +214,7 @@ _.redraw = function() {
     fontSize: .9*height/+block.css('fontSize').slice(0,-2)+'em'
   });
 };
-
+_.optional_arg_command = 'nthroot';
 LatexCmds.sqrt = LatexCmds['√'] = SquareRoot;
 
 function NthRoot(replacedFragment) {
@@ -184,7 +231,6 @@ _.text_template = ['sqrt[', '](', ')'];
 _.latex = function() {
   return '\\sqrt['+this.firstChild.latex()+']{'+this.lastChild.latex()+'}';
 };
-
 LatexCmds.nthroot = NthRoot;
 
 // Round/Square/Curly/Angle Brackets (aka Parens/Brackets/Braces)
@@ -218,6 +264,10 @@ LatexCmds.lbrace = CharCmds['{'] = proto(Bracket, function(replacedFragment) {
 LatexCmds.langle = LatexCmds.lang = proto(Bracket, function(replacedFragment) {
   Bracket.call(this,'&lang;','&rang;','\\langle ','\\rangle ',replacedFragment);
 });
+LatexCmds.llbracket = LatexCmds['\\llbracket'] = proto(Bracket, function(replacedFragment){
+  Bracket.call(this, '[<span style="margin-left:-4px">[</span>',']<span style="margin-left:-4px">]</span>','\\lbrack\\!\\!\\left\\lbrack ','\\rbrack\\!\\!\\right\\rbrack ',replacedFragment);
+});
+ComboCmds['\\\\lbrack\\\\!\\\\!\\\\left\\\\lbrack'] = '\\llbracket'; //Preprocessed into LaTeX command - this command doesn't yet exist in MathJax
 
 // Closing bracket matching opening bracket above
 function CloseBracket(open, close, cmd, end, replacedFragment) {
@@ -239,7 +289,10 @@ LatexCmds.rbrace = CharCmds['}'] = proto(CloseBracket, function(replacedFragment
 LatexCmds.rangle = LatexCmds.rang = proto(CloseBracket, function(replacedFragment) {
   CloseBracket.call(this,'&lang;','&rang;','\\langle ','\\rangle ',replacedFragment);
 });
-
+LatexCmds.rrbracket = LatexCmds['\\rrbracket'] = proto(CloseBracket, function(replacedFragment){
+  CloseBracket.call(this, '[<span style="margin-left:-4px">[</span>',']<span style="margin-left:-4px">]</span>','\\lbrack\\!\\!\\left\\lbrack ','\\rbrack\\!\\!\\right\\rbrack ',replacedFragment);
+});
+ComboCmds['\\\\rbrack\\\\!\\\\!\\\\right\\\\rbrack'] = '\\rrbracket'; //Preprocessed into LaTeX command - this command doesn't yet exist in MathJax
 function Paren(open, close, replacedFragment) {
   Bracket.call(this, open, close, open, close, replacedFragment);
 }
@@ -652,7 +705,7 @@ _.parseLatex = function( latex ) {
   var data = [];
   var width = 0;
   for( var i = 0; i < tokens.length; i++ ){
-    var row_tokens = tokens[i].split(/ & /g);
+    var row_tokens = tokens[i].split(/&/g);
     data.push( row_tokens );
     width = Math.max( width, row_tokens.length );
   }
@@ -690,7 +743,7 @@ _.latex = function() {
     result.push( data.join(' & ') )
   }
 
-  return '\\begin{matrix}' + columns + " " + result.join(' \\\\ ') + ' \\end{matrix}';
+  return '\\begin{array}' + columns + " " + result.join(' \\\\ ') + ' \\end{array}';
 };
 _.text = function() {
   return '[' + this.foldChildren([], function(latex, child) {
@@ -1184,7 +1237,7 @@ _ = Cases.prototype = new ArrayCmd;
 _.html_template = ['<span><span class="paren">{</span><span class="grid"></span></span>', '<span></span>'];
 _.redraw = function() {
   var block = this.firstChild.jQ;
-  this.jQ.find(".paren").css('fontSize', block.outerHeight()/(+block.css('fontSize').slice(0,-2)*1.02)+'em');;
+  this.jQ.find(".paren").eq(0).css('fontSize', block.outerHeight()/(+block.css('fontSize').slice(0,-2)*1.02)+'em');;
 };
 
 /**
@@ -1208,7 +1261,7 @@ _.parseLatex = function( latex ) {
   var data = [];
   var width = 0;
   for( var i = 0; i < tokens.length; i++ ){
-    var row_tokens = tokens[i].split(/ & /g);
+    var row_tokens = tokens[i].split(/&/g);
     data.push( row_tokens );
     width = Math.max( width, row_tokens.length );
   }
@@ -1249,6 +1302,51 @@ _.latex = function() {
   return '\\begin{cases}' + " " + result.join(' \\\\ ') + ' \\end{cases}';
 };
 LatexEnvirons.cases = Cases;
+
+/*******************
+ Support for Align Environment for Summation
+
+ In default LaTeX, the notation around the summation is not placed on top and below it,
+ but to its right.  There are a couple of ways to change this in LaTeX, and the one that
+ fits best with our version of MathQuill is the align environment.
+*******************/
+
+function Align(replacedFragment, latex) {
+
+  MathCommand.call(this, '\\align', undefined, undefined, replacedFragment);
+
+  this.data = this.parseLatex(latex);
+  this.hasCursor = false;
+
+}
+_ = Align.prototype = new MathCommand;
+_.html_template = ['<span class="align"></span>'];
+_.placeCursor = function( cursor ){
+  
+  this.cursor = cursor.appendTo(this.firstChild);
+
+  if( !this.hasCursor ){
+    this.hasCursor = true;
+    this.cursor.writeLatex( this.data ).redraw();
+  }
+
+}
+_.parseLatex = function( latex ) {
+
+  //split the latex and determine the basic info about it
+  var match = /\\begin{align}(.+?)\\end{align}/.exec( latex );
+  
+  // If we get a string that doesn't match, we've got some corrupted data
+  if( !match ){
+    return "";
+  }
+  
+  return match[1];
+}
+_.latex = function() {
+  return '\\begin{align} ' + this.firstChild.latex() + ' \\end{align}';
+};
+LatexEnvirons.align = Align;
 
 
 LatexCmds.editable = proto(RootMathCommand, function() {

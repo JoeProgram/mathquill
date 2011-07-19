@@ -214,52 +214,79 @@
   padding-left: .1em;
 }
 
-.mathquill-rendered-math .fraction {
+.mathquill-rendered-math .fraction,
+.mathquill-rendered-math .stackrel{
   font-size: 90%;
   text-align: center;
   vertical-align: -.5em;
   padding: 0 .1em;
 }
-.mathquill-rendered-math .fraction, x:-moz-any-link { /* Firefox 2 (and older?) only */
+.mathquill-rendered-math .fraction, x:-moz-any-link,
+.mathquill-rendered-math .stackrel, x:-moz-any-link  { /* Firefox 2 (and older?) only */
   display: -moz-groupbox; /* because display:inline-block is FUBAR in Gecko < 1.9.0 */
 }
-.mathquill-rendered-math .fraction, x:-moz-any-link, x:default { /* Firefox 3+ (Gecko 1.9.0+) */
+.mathquill-rendered-math .fraction, x:-moz-any-link, x:default, 
+.mathquill-rendered-math .stackrel, x:-moz-any-link, x:default { /* Firefox 3+ (Gecko 1.9.0+) */
   display: inline-block;
 }
-.mathquill-rendered-math .numerator, .mathquill-rendered-math .denominator {
+.mathquill-rendered-math .numerator, 
+.mathquill-rendered-math .denominator,
+.mathquill-rendered-math .stackrel_top, 
+.mathquill-rendered-math .stackrel_bottom{
   display: block;
 }
-.mathquill-rendered-math .numerator {
+.mathquill-rendered-math .numerator,
+.mathquill-rendered-math .stackrel_top{
   border-bottom: 1px solid; /* black is too black, contrasts with antialised text */
   padding: 0 .1em;
   margin-bottom: 0px; /* Our default margin on an active element is -1px, so we set it to 0px when using a border */
 }
-.mathquill-rendered-math .denominator {
+.mathquill-rendered-math .denominator,
+.mathquill-rendered-math .stackrel_bottom{
   border-top: 1px solid;
   margin-top: 0px; /* Our default margin on an active element is -1px, so we set it to 0px when using a border */
   float: right; /* take out of normal flow to manipulate baseline */
   width: 100%;
 }
-*:first-child+html .mathquill-rendered-math .numerator { /* IE7 only */
+*:first-child+html .mathquill-rendered-math .numerator,
+*:first-child+html .mathquill-rendered-math .stackrel_top { /* IE7 only */
   float: left;
 }
 
-*:first-child+html .mathquill-rendered-math .denominator { /* IE7 only */
+*:first-child+html .mathquill-rendered-math .denominator,
+*:first-child+html .mathquill-rendered-math .stackrel_bottom  { /* IE7 only */
   clear: both;
   width: auto;
   float: left;
 }
 
-.mathquill-rendered-math sup .fraction, .mathquill-rendered-math sub .fraction {
+.mathquill-rendered-math sup .fraction, 
+.mathquill-rendered-math sup .stackrel, 
+.mathquill-rendered-math sub .fraction,
+.mathquill-rendered-math sub .stackrel {
   font-size: 70%;
   vertical-align: -.4em;
 }
-.mathquill-rendered-math sup .numerator, .mathquill-rendered-math sub .numerator {
+.mathquill-rendered-math sup .numerator,
+.mathquill-rendered-math sup .stackrel_top,
+.mathquill-rendered-math sub .numerator,
+.mathquill-rendered-math sub .stackrel_top {
   border-bottom: none;
   padding-bottom: 0;
 }
-.mathquill-rendered-math sup .denominator, .mathquill-rendered-math sub .denominator {
+.mathquill-rendered-math sup .denominator,
+.mathquill-rendered-math sup .stackrel_bottom,  
+.mathquill-rendered-math sub .denominator,
+.mathquill-rendered-math sub .stackrel_bottom {
   padding-top: 0;
+}
+
+.mathquill-rendered-math .stackrel_top{
+    border-bottom: 1px transparent;
+}
+
+.mathquill-rendered-math .stackrel_bottom{
+    border-top: 1px transparent;
 }
 
 .mathquill-rendered-math .latex-command-input {
@@ -315,6 +342,22 @@
   padding-right: .2em;
 }
 
-/*.mathquill-rendered-math .not {
-  margin-right: -.75em;
-}*/
+.mathquill-rendered-math .overhead {
+  position: relative;
+}
+
+.mathquill-rendered-math .overline {
+  border-top: 1px solid;
+}
+
+.mathquill-rendered-math .overrightarrow {
+  position:absolute;
+  top: -7px;
+  right: 0;
+}
+
+.mathquill-rendered-math .overleftarrow {
+  position:absolute;
+  top: -7px;
+  left: 0;
+}

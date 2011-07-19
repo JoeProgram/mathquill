@@ -233,13 +233,26 @@ _.writeLatex = function(latex) {
   // So we convert them to spaces first.
   latex = latex.replace(/\n/g," ");
 
-  latex = ( latex && latex.match(/\\text\{([^{]|\\\{)*\}|\\begin{([a-z]*)}.+?\\end{\2}|\\[a-z]*|[^\s]/ig) ) || 0;
+  // Sometimes building a symbol in MathQuill isn't as simple as one LaTeX command
+  // in that case, we translate it into a MathQuill command before handing it to the parser
+  // a good example of this is the 'angles' command
+  $.each( ComboCmds, function(key, value){
+    latex = latex.replace( new RegExp(key,"g"), value);
+  });
+
+  // Description of Regular Expression:
+  //   Match \text{}
+  //   Match environments (\begin{} ... \end{})
+  //   Match commands (\pi)
+  //   Match backslash
+  //   Match spaces
+  latex = ( latex && latex.match(/\\text\{([^{]|\\\{)*\}|\\begin{([a-z]*)}.+?\\end{\2}|\\([a-z]+|:|&|%)|\\|[^\s]/ig) ) || 0;
 
   (function writeLatexBlock(cursor) {
     while (latex.length) {
       var token = latex.shift(); //pop first item
 
-      if (!token || token === '}') return;
+      if (!token || token === '}' || token === ']') return;
 
       // parse text boxes
       var cmd;
@@ -255,7 +268,11 @@ _.writeLatex = function(latex) {
         if (token === '\\')
           token = latex.shift();
 
-        cursor.insertCh(token);
+        if(LatexCmds[token]){
+          cursor.insertNew( new LatexCmds[token](undefined, token) );
+        }else{
+          cursor.insertCh(token);
+        }
         cmd = cursor.prev || cursor.parent.parent;
 
         if (cursor.prev) //was a close-paren, so break recursion
@@ -286,11 +303,16 @@ _.writeLatex = function(latex) {
 
       // Parse Commands
       else if (/^\\[a-z]+$/i.test(token)) {
-
         token = token.slice(1);
         var cmd = LatexCmds[token];
-        if (cmd){
-          cursor.insertNew(cmd = new cmd(undefined, token));
+        if (cmd) {
+          cmd = new cmd(undefined, token);
+          if (latex[0] === '[' && cmd.optional_arg_command) {
+            //e.g. \sqrt{m} -> SquareRoot, \sqrt[n]{m} -> NthRoot
+            token = cmd.optional_arg_command;
+            cmd = new LatexCmds[token](undefined, token);
+          }
+          cursor.insertNew(cmd);
         } else {
           cmd = new TextBlock(token);
           cursor.insertNew(cmd).insertAfter(cmd);
@@ -313,12 +335,13 @@ _.writeLatex = function(latex) {
         var token = latex.shift();
         if (!token) return false;
 
-        if (token === '{'){
+        if (token === '{' || token ==='['){
           writeLatexBlock(cursor);
         } else {
           cursor.insertCh(token);
         }
       });
+      cmd.postProcess();
       cursor.insertAfter(cmd);
     }
   }(this));

@@ -32,7 +32,10 @@ function VanillaSymbol(ch, html) {
 }
 VanillaSymbol.prototype = Symbol.prototype;
 
+// We bind the space twice, because its latex is fundamentally different
+// from how its entered in MathQuill
 CharCmds[' '] = bind(VanillaSymbol, '\\:', ' ');
+LatexCmds['\\:'] = bind(VanillaSymbol, '\\:', ' ');  
 
 LatexCmds.prime = CharCmds["'"] = bind(VanillaSymbol, "'", '&prime;');
 
@@ -43,7 +46,26 @@ NonSymbolaSymbol.prototype = Symbol.prototype;
 
 LatexCmds['@'] = NonSymbolaSymbol;
 LatexCmds['&'] = bind(NonSymbolaSymbol, '\\&', '&');
+LatexCmds['\\&'] = bind(NonSymbolaSymbol, '\\&', '&');
 LatexCmds['%'] = bind(NonSymbolaSymbol, '\\%', '%');
+LatexCmds['\\%'] = bind(NonSymbolaSymbol, '\\%', '%');
+
+/* Some symbols don't have LaTeX equivalents,
+ * but latex can render unicode characters with its unicode function.
+ * We add support for that here.
+ */
+
+function UnicodeSymbol(ch, html){
+    Symbol.call(this, ch, '<span></span>');
+}
+_ = UnicodeSymbol.prototype = new MathCommand;
+_.latex = function(){ return '\\unicode{' + this.unicode + '}'; };
+_.postProcess = function(){
+  this.unicode = this.jQ.text()
+  this.firstChild = this.lastChild = null;
+  this.jQ.html( "&#" + this.jQ.text() + ";" );
+}
+LatexCmds.unicode = UnicodeSymbol;
 
 //the following are all Greek to me, but this helped a lot: http://www.ams.org/STIX/ion/stixsig03.html
 
@@ -347,6 +369,7 @@ LatexCmds.mid = bind(VanillaSymbol, '\\mid', '&#8739;');
 LatexCmds.ll = bind(VanillaSymbol, '\\ll', '&#8810;');
 LatexCmds.gg = bind(VanillaSymbol, '\\gg', '&#8811;');
 LatexCmds.parallel = bind(VanillaSymbol, '\\parallel', '&#8741;');
+LatexCmds.nparallel = bind(VanillaSymbol, '\\nparallel', '&#8742;');
 LatexCmds.bowtie = bind(VanillaSymbol, '\\bowtie', '&#8904;');
 LatexCmds.sqsubset = bind(VanillaSymbol, '\\sqsubset', '&#8847;');
 LatexCmds.sqsupset = bind(VanillaSymbol, '\\sqsupset', '&#8848;');
@@ -399,6 +422,7 @@ LatexCmds.heartsuit = bind(VanillaSymbol, '\\heartsuit', '&#9825;');
 LatexCmds.spadesuit = bind(VanillaSymbol, '\\spadesuit', '&#9824;');
 LatexCmds.checkmark = bind(VanillaSymbol, '\\checkmark', '&#10003;');
 LatexCmds.XSolidBrush = bind(VanillaSymbol, '\\XSolidBrush','&#10007;' );
+LatexCmds.circledot = bind(VanillaSymbol, '\\circledot','&#8857;')
 
 //variable-sized
 LatexCmds.oint = bind(VanillaSymbol, '\\oint', '&#8750;');
@@ -522,6 +546,9 @@ LatexCmds.cap = LatexCmds.intersect = LatexCmds.intersection =
 LatexCmds.deg = LatexCmds.degree = bind(VanillaSymbol,'^\\circ ','&deg;');
 
 LatexCmds.ang = LatexCmds.angle = bind(VanillaSymbol,'\\angle ','&ang;');
+
+LatexCmds.angles = bind(VanillaSymbol,'\\angle\\!\\!\\!\\!s ','&ang;<span style="margin-left:-5px">s</span>');
+ComboCmds['\\\\angle\\\\!\\\\!\\\\!\\\\!s'] = "\\angles"; //Preprocessed into fake LaTeX command to make reading from MathJax -> MathQuill easier
 
 
 function NonItalicizedFunction(replacedFragment, fn) {
